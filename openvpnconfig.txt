@@ -1,0 +1,158 @@
+dnf install -y openvpn easy-rs
+
+# We need to generate encryption keys for the server and clients.	
+
+#Directory for the pki
+mkdir -p ~/openvpn-ca
+cp -r /usr/share/easy-rsa/* ~/openvpn-ca/
+cd ~/openvpn-ca
+
+
+#Intialize the pki
+
+./easyrsa init-pki
+
+
+#Build the Certificate Authority (CA)
+./easyrsa build-ca
+
+common namet kell adni
+
+
+#Generate the Server Certificate and Key
+
+
+./easyrsa gen-req server nopass
+
+common name server
+
+
+#Move the server key to OpenVPN's directory:
+
+sudo cp pki/private/server.key /etc/openvpn/
+
+
+#Sign the Server Certificate
+./easyrsa sign-req server server
+
+
+#Move the signed certificate:
+
+sudo cp pki/issued/server.crt /etc/openvpn/
+sudo cp pki/ca.crt /etc/openvpn/
+
+
+#Generate Diffie-Hellman Key Exchange
+
+
+./easyrsa gen-dh
+sudo cp pki/dh.pem /etc/openvpn/
+
+
+#Generate TLS Authentication Key
+
+openvpn --genkey --secret ta.key
+sudo mv ta.key /etc/openvpn/
+
+
+
+#Configure the OpenVPN Server
+/etc/openvpn/server.conf
+
+port 1194
+proto udp
+dev tun
+ca /etc/openvpn/ca.crt
+cert /etc/openvpn/server.crt
+key /etc/openvpn/server.key
+dh /etc/openvpn/dh.pem
+tls-auth /etc/openvpn/ta.key 0
+server 10.8.0.0 255.255.255.0
+ifconfig-pool-persist ipp.txt
+push "redirect-gateway def1 bypass-dhcp"
+push "dhcp-option DNS 8.8.8.8"
+keepalive 10 120
+cipher AES-256-CBC
+auth SHA256
+persist-key
+persist-tun
+status /var/log/openvpn-status.log
+log /var/log/openvpn.log
+verb 3
+
+
+
+
+#Enable IP Forwarding
+/etc/sysctl.conf
+
+net.ipv4.ip_forward = 1
+
+
+sudo sysctl -p
+
+
+
+sudo firewall-cmd --permanent --add-port=1194/udp
+sudo firewall-cmd --permanent --add-masquerade
+sudo firewall-cmd --reload
+
+
+sudo systemctl enable --now openvpn-server@server
+sudo systemctl status openvpn-server@server
+
+
+
+
+
+
+
+
+#Configure OpenVPN Clients
+#On the server, generate a client key:
+cd ~/openvpn-ca
+./easyrsa gen-req client1 nopass
+./easyrsa sign-req client client1
+
+
+#Copy the following files to the client device:
+
+/etc/openvpn/ca.crt
+
+~/openvpn-ca/pki/issued/client1.crt
+
+~/openvpn-ca/pki/private/client1.key
+
+/etc/openvpn/ta.key
+
+
+
+client.ovpn(this is the config file)
+
+client
+dev tun
+proto udp
+remote <Server-IP> 1194
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+ca ca.crt
+cert client1.crt
+key client1.key
+tls-auth ta.key 1
+cipher AES-256-CBC
+auth SHA256
+verb 3
+
+#Connect using:
+sudo openvpn --config client.ovpn
+
+
+
+
+
+
+
+
+
