@@ -1,0 +1,44 @@
+sudo dnf install -y squid
+sudo systemctl enable --now squid
+
+/etc/squid/squid.conf
+
+#port megváltoztatása
+http_port 3128
+
+#Proxy engedélyezése adott ip tartománynak
+acl mynetwork src 192.168.1.0/24
+http_access allow mynetwork
+
+#Ha mindenkinek engedélyezném
+http_access allow all
+
+
+
+sudo systemctl restart squid
+sudo firewall-cmd --permanent --add-port=3128/tcp
+
+curl -x http://<SQUID_IP>:3128 -L http://example.com
+
+
+#Ha szeretnéd, hogy a felhasználók csak jelszóval érhessék el a proxyt, telepíts egy autentikációs modult:
+
+sudo dnf install -y httpd-tools
+sudo touch /etc/squid/passwd
+sudo chown squid /etc/squid/passwd
+
+#felhasználó hozzáadás
+
+/etc/squid/passwd
+sudo htpasswd -b /etc/squid/passwd myuser mypassword
+
+
+/etc/squid/squid.conf
+auth_param basic program /usr/lib64/squid/basic_ncsa_auth /etc/squid/passwd
+auth_param basic realm Proxy
+acl authenticated proxy_auth REQUIRED
+http_access allow authenticated
+
+
+sudo systemctl restart squid
+

@@ -1,0 +1,14 @@
+sudo dnf install -y community-mysql-server
+sudo systemctl enable --now mysqld
+sudo mysql_secure_installation
+/etc/my.cnf 
+bind-address = 127.0.0.1----->bind-address = 0.0.0.0
+systemctl restart mysqld
+firewall-cmd --add-service=mysql --permanent
+mysql -u root -p
+CREATE DATABASE mydb;
+CREATE USER 'myuser'@'%' IDENTIFIED BY 'mypassword';
+GRANT ALL PRIVILEGES ON mydb.* TO 'myuser'@'%';
+FLUSH PRIVILEGES;
+EXIT;
+mysql -u myuser -p -D mydb
